@@ -12,11 +12,12 @@ contract Bet {
   uint256 public pot;
   uint256 public minimumBet;
   uint SetWinner = 0;
+  string public bettingName;
 
   enum BettingStatus { Not_started, Started, Finished }
   BettingStatus public betStatus;
-  uint startedTimestamp;
-  uint public avaiableSeconds = 60;
+  uint public startedTimestamp = 0;
+  uint public avaiableSeconds = 120;
 
   struct Payment {
       uint amount;
@@ -39,7 +40,7 @@ contract Bet {
 
   event BetPlayer(address indexed _from, uint256 _amount, uint player);
   event PaymentSent(address _from, uint _amount);
-  event CheckWinner(uint _winner);
+  event MakeWinner(uint _winner);
   event CheckBool(bool _team);
   event AvailableSecondsChanged(uint oldSeconds, uint newSeconds);
 
@@ -50,18 +51,24 @@ contract Bet {
 
     minimumBet = 2000000000000000000;
     pot = 2000000000000000000;
+    bettingName = '';
   }
 
-  function startBetting(uint256 amount) public {
+  function startBetting(uint256 amount, string memory name) public {
     require(
       amount >= minimumBet,
       "POT value needs 2 tokens at least"
+    );
+    require(
+      bytes(name).length > 0,
+      "Betting name cant be empty string"
     );
 
     betStatus = BettingStatus.Started;
     pot = amount;
     startedTimestamp = now;
     SetWinner = 0;
+    bettingName = name;
   }
 
   function betPlayer(uint player) public {
@@ -80,7 +87,7 @@ contract Bet {
     require(
       startedTimestamp + avaiableSeconds * 1 seconds >= now,
       "You are late for betting"
-    );            
+    );
 
     IERC20(tokenAddress).transferFrom(
       msg.sender,
@@ -109,7 +116,7 @@ contract Bet {
     SetWinner = player;
     betStatus = BettingStatus.Finished;
 
-    emit CheckWinner(player);
+    emit MakeWinner(player);
   }
 
   function setAvailableSeconds(uint newSeconds) public {
@@ -123,7 +130,7 @@ contract Bet {
     require(playerBet[msg.sender].collect == false, "You already collected your winnings");
     uint256 withdrawAmount = pot.mul(2);
     require(
-      IERC20(tokenAddress).balanceOf(address(this)) >= withdrawAmount.mul(2),
+      IERC20(tokenAddress).balanceOf(address(this)) >= withdrawAmount,
       "Insufficent token balance to pay out"
     );
 
@@ -132,30 +139,25 @@ contract Bet {
       playerBet[msg.sender].collect = true;
       
     } else{
-       playerBet[msg.sender].entry == 2 && SetWinner ==2;
        playerBet[msg.sender].amountBet += pot;
        playerBet[msg.sender].collect = true;
        
     }
 
     // added for sending 2*tokens to winner
-    IERC20(tokenAddress).transfer(msg.sender, withdrawAmount.mul(2));
+    IERC20(tokenAddress).transfer(msg.sender, withdrawAmount);
 
-    emit PaymentSent(msg.sender, withdrawAmount.mul(2));
+    emit PaymentSent(msg.sender, withdrawAmount);
   }
 
   function withdrawTokens(uint _amount) public {
-    require(playerBet[msg.sender].amountBet > 0, "You have nothing to withdraw");
-    require(playerBet[msg.sender].entry == SetWinner, "You lost this one");
-    require(playerBet[msg.sender].collect == true, "Please collect your winnings");
-    _amount = (playerBet[msg.sender].amountBet);
-    msg.sender.transfer(_amount);
+    require(
+      IERC20(tokenAddress).balanceOf(address(this)) >= _amount,
+      "Insufficent token balance to withdraw"
+    );
+    IERC20(tokenAddress).transfer(msg.sender, _amount);
   }
 
   //  function destroyContract() public onlyOwner {
-      
-      
-
-      
   // }
 }
